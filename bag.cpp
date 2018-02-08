@@ -12,49 +12,9 @@ struct item_t
     int value;
 };
 
-//template <class T>
-//void inspect(const std::vector<T> & imps, int * outTotalValue, int * usedCapacity, std::string * outStr = nullptr)
-//{
-//    int total_value = 0;
-//    int used_capacity = 0;
-//    char buf[256];
-//    std::string str;
-//    for (int i = 0; i<imps.size(); ++i)
-//    {
-//        if (imps[i].chosen)
-//        {
-//            total_value += imps[i].value;
-//            used_capacity += imps[i].weight;
-//            str.append("Y");
-//        }
-//        sprintf(buf, "(%c v:%d, w:%d)", imps[i].id, imps[i].value, imps[i].weight);
-//        str.append(buf);
-//        str.append(", ");
-//    }
-//
-//    if (outTotalValue)
-//        *outTotalValue = total_value;
-//
-//    if (usedCapacity)
-//        *usedCapacity = used_capacity;
-//
-//    if (outStr)
-//        *outStr = str;
-//}
 
-std::vector<char> init_tags()
-{
-    std::vector<char> tags;
-    for ( char ch = 'A'-1; ch<='Z'; ++ch)
-    {
-        tags.push_back(ch);
-    }
-    return tags;
-}
 
 static int sLevel = 0;
-static std::vector<char> sTags = init_tags();
-static int k = 0;
 
 class ScopedLevel
 {
@@ -147,28 +107,109 @@ void fill_bag(int capacity, const std::vector<item_t> & items)
     std::vector<char> choices;
     auto value = fill(capacity, items, choices);
     printf("max value: %d, choices:", value);
-    std::for_each(choices.begin(), choices.end(), [](char ch){
+    int used_capacity = 0;
+    std::for_each(choices.begin(), choices.end(), [&items, &used_capacity](char ch){
+        auto it = std::find_if(items.begin(), items.end(), [ch](const item_t & item) { return ch ==item.id;});
+        if (it != items.end())
+        {
+            used_capacity += it->weight;
+        }
         printf("%c ", ch);
     });
-    printf("\n");
+    printf(" Capacity: %d/%d\n", used_capacity, capacity);
 
+}
+
+void fill_bag_v2(int capacity, const std::vector<item_t> & items)
+{
+    auto C = capacity;
+    int n = items.size();
+    int width = C + 1;
+    int height = n + 1;
+    // create (n +1) x (Capacity +1) matrix
+    std::vector<int> table(width * height, 0);
+    
+    
+    int * p = table.data();
+    // init table
+    for ( int x = 0; x<width; ++x)
+    {
+        p[x] = 0;
+    }
+    
+    int * py = p;
+    for (int y = 0; y<height; ++y, py+=width)
+    {
+        *py = 0;
+    }
+    
+    // y ==  index; x == capacity
+    auto fn = [&table, items, width, height](int i, int c)->int{
+        if ( i == 0 ) return 0;
+        if ( c == 0 ) return 0;
+        
+        
+        int ii = i-1;
+        int idx1 = ii * width + c;
+        auto & item = items[i-1];
+        int cap2 = c - item.weight;
+        if (cap2 < 0)
+        {
+            //cap2 = 0;
+            return table[idx1];
+        }
+        int idx2 = ii * width + cap2;
+        
+        return std::max(table[idx1], table[idx2] + item.value);
+    };
+    
+    for ( int i = 1; i<height; ++i)
+    {
+        for (int c = 1; c<width; ++c)
+        {
+            int idx = i * width + c;
+            table[idx] = fn(i, c);
+        }
+        
+    }
+    
+    
+    // dump table
+    for (int i = 0; i<height; ++i)
+    {
+        for (int c = 0; c<width; ++c)
+        {
+            int idx = i * width + c;
+            printf("[%d][%d]:%2d; ", i, c, table[idx]);
+        }
+        printf("\n");
+    }
+    
 }
 
 int main()
 {
+    int capacity = 11;//26;
     std::vector<item_t> items = {
         {'a', 1, 1},
         {'b', 2, 6},
         {'c', 5, 18},
         {'d', 6, 22},
         {'e', 7, 28},
-        {'f', 8, 31},
-        {'g', 9, 35},
-        {'h', 11, 40},
+//        {'f', 8, 31},
+//        {'g', 9, 35},
+//        {'h', 11, 40},
     };
     
-    int capacity = 26;
-    fill_bag(capacity, items);
+    fill_bag_v2(capacity, items);
+    //fill_bag(capacity, items);
+    
+    auto items_2 = items;
+    items.emplace_back(item_t{'f', 8, 31});
+    items.emplace_back(item_t{'g', 9, 35});
+    items.emplace_back(item_t{'h', 11, 40});
+    int capacity_2 = 26;
+    //fill_bag(capacity_2, items_2);
     return 0;
 }
 
