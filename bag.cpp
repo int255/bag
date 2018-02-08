@@ -101,7 +101,7 @@ int fill(int capacity, const std::vector<item_t> & items, std::vector<char> & ch
     return ret;
 }
 
-void fill_bag(int capacity, const std::vector<item_t> & items)
+void fill_bag_v1(int capacity, const std::vector<item_t> & items)
 {
     static_assert(std::is_pod<item_t>::value, "item_t must be pod");
     std::vector<char> choices;
@@ -123,24 +123,29 @@ void fill_bag(int capacity, const std::vector<item_t> & items)
 void fill_bag_v2(int capacity, const std::vector<item_t> & items)
 {
     auto C = capacity;
-    int n = items.size();
+    int n = (int)items.size();
     int width = C + 1;
     int height = n + 1;
     // create (n +1) x (Capacity +1) matrix
-    std::vector<int> table(width * height, 0);
+    struct cell_t
+    {
+        int v = 0;
+        bool picked = false;
+    };
+    std::vector<cell_t> table(width * height);
     
     
-    int * p = table.data();
+    auto * p = table.data();
     // init table
     for ( int x = 0; x<width; ++x)
     {
-        p[x] = 0;
+        p[x].v = 0;
     }
     
-    int * py = p;
+    auto * py = p;
     for (int y = 0; y<height; ++y, py+=width)
     {
-        *py = 0;
+        (*py).v = 0;
     }
     
     // y ==  index; x == capacity
@@ -156,11 +161,17 @@ void fill_bag_v2(int capacity, const std::vector<item_t> & items)
         if (cap2 < 0)
         {
             //cap2 = 0;
-            return table[idx1];
+            return table[idx1].v;
         }
         int idx2 = ii * width + cap2;
         
-        return std::max(table[idx1], table[idx2] + item.value);
+        if ( table[idx1].v <(table[idx2].v + item.value))
+        {
+            table[i*width + c].picked = true;
+            return (table[idx2].v + item.value);
+        } else {
+            return  table[idx1].v;
+        }
     };
     
     for ( int i = 1; i<height; ++i)
@@ -168,7 +179,7 @@ void fill_bag_v2(int capacity, const std::vector<item_t> & items)
         for (int c = 1; c<width; ++c)
         {
             int idx = i * width + c;
-            table[idx] = fn(i, c);
+            table[idx].v = fn(i, c);
         }
         
     }
@@ -180,10 +191,13 @@ void fill_bag_v2(int capacity, const std::vector<item_t> & items)
         for (int c = 0; c<width; ++c)
         {
             int idx = i * width + c;
-            printf("[%d][%d]:%2d; ", i, c, table[idx]);
+            printf("[%d][%d]:%2d %c; ", i, c, table[idx].v, table[idx].picked?'*':'-');
         }
         printf("\n");
     }
+    
+    // TODO: we can know which items where picked by getting the max value
+    // And track back the choices path using the cell_t.picked info in the table
     
 }
 
@@ -202,14 +216,15 @@ int main()
     };
     
     fill_bag_v2(capacity, items);
-    //fill_bag(capacity, items);
+    //fill_bag_v1(capacity, items);
     
     auto items_2 = items;
     items.emplace_back(item_t{'f', 8, 31});
     items.emplace_back(item_t{'g', 9, 35});
     items.emplace_back(item_t{'h', 11, 40});
     int capacity_2 = 26;
-    //fill_bag(capacity_2, items_2);
+    //fill_bag_v1(capacity_2, items_2);
+    //fill_bag_v2(capacity_2, items_2);
     return 0;
 }
 
